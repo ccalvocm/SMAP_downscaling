@@ -1,20 +1,28 @@
-var WTD = imageCollection.mosaic().reproject("EPSG:4326",null,1000).rename('WTD'); 
-DTB = DTB.reproject("EPSG:4326",null,5000).rename('DTB')
-var EuropeBoundary=table.filterMetadata("CONTINENT","equals","Europe");
-var EuropeBoundary=table3;
+var MERIT = ee.Image("MERIT/Hydro/v1_0_1"),
+    MOD13A2 = ee.ImageCollection("MODIS/006/MOD13A2"),
+    table = ee.FeatureCollection("users/qianrswaterr/globalBoundary/World_Continents"),
+    ERA5Land = ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY"),
+    imageCollection = ee.ImageCollection("users/qianrswaterr/WTD"),
+    DTB = ee.Image("users/qianrswaterr/predictors/BDTICM_M_1km_ll"),
+    trainTest = ee.FeatureCollection("users/qianrswaterr/GlobalSSM2022/trainTestFinal2022-0509coor"),
+    valiEva = ee.FeatureCollection("users/qianrswaterr/GlobalSSM2022/valiEvaFinal2022-0509coor"),
+    NLsamples = ee.FeatureCollection("users/qianrswaterr/NLsamples/trainTestNL2022-0509coor"),
+    TIele = ee.Image("users/qianrswaterr/GlobalSSM/TIele1000resample0709");
 
-var clp = function(image){
-  return ee.Image(image).clip(EuropeBoundary);       // clip image to case study area
-};
+
+var WTD = imageCollection.mosaic().reproject("EPSG:4326",null,1000).rename('WTD'); 
+DTB = DTB.reproject("EPSG:4326",null,1000).rename('DTB')
+var EuropeBoundary=table.filterMetadata("CONTINENT","equals","Europe");
+var EuropeBoundary=table2;
 
 ///////////////NDVI & EVI
 var modis = MOD13A2
 var oeel=require('users/OEEL/lib:loadAll');
-var firstYear = 2019;
+var firstYear = 2019
 var firstDaymodis = ee.String(ee.Number(firstYear).subtract(1)).cat('-12-13');
 var lastDaymodis = ee.String(ee.Number(firstYear).add(1)).cat('-01-18');
 // 26 images in the current year
-modis=modis.filterDate(firstDaymodis,lastDaymodis).select(["NDVI","EVI"]).map(clp);
+modis=modis.filterDate(firstDaymodis,lastDaymodis).select(["NDVI","EVI"]);
 print("originalMODIS",modis);
 Map.addLayer(modis.select(["NDVI","EVI"]),{},"original NDVI&EVI")
 // SG filter
@@ -24,7 +32,7 @@ var s=oeel.ImageCollection.SavatskyGolayFilter(modis,
           return ee.Image.constant(ee.Number(infromedImage.get('system:time_start'))
             .subtract(ee.Number(estimationImage.get('system:time_start'))));},
         3,["NDVI","EVI"],modis);
-//print("SG NDVI & EVI in the current firstye and 12/19(or 12/18) of the previous year, 1/17 of the next year)",s)
+//print("SG NDVI & EVI in the current year and 12/19(or 12/18) of the previous year, 1/17 of the next year)",s)
 
 ///////////////////////////Linear interpolation
 ////24 images, filter 12/19(or 12/18) and 1/17 which have masked values
@@ -46,7 +54,7 @@ var ddCll = ee.ImageCollection.fromImages(
                               .set('system:time_start',ee.Number(tuple))
                               .select(['constant'],['time']);
                             })
-).map(clp);
+);
 // Original NDVI copier
 function copyValue (img){
  var time = img.metadata('system:time_start');
@@ -280,7 +288,7 @@ var TairCollection = joinImgs.map(function(image) {
   _dayImg = _dayImg.set("system:time_start", ee.Date.parse("yyyy-MM-dd", _date).millis())
                   .set('date',_date)
   return _dayImg.rename("Tair")//.reproject("EPSG:4326",null,1000); 
-}).map(clp); 
+}); 
 TairCollection = ee.ImageCollection(TairCollection)
 print("TairCollection",TairCollection)
 Map.addLayer(ee.ImageCollection(TairCollection),{min:0,max:0.05},'TairCollection')
@@ -312,7 +320,7 @@ function batchRename_dailyLST(image){
   return image.rename(rename);
 }
 var dailyLST0=batchRename_dailyLST(dayLST.add(nightLST).divide(ee.Number(2)))
-.reproject("EPSG:4326",null,5000);
+.reproject("EPSG:4326",null,1000);
 print("dailyLST0",dailyLST0)
 function batchRename_dailyLSTDiff(image){
   var rename=image.bandNames().map(function(name){
@@ -321,7 +329,7 @@ function batchRename_dailyLSTDiff(image){
   return image.rename(rename);
 }
 var dailyLSTDiff0=batchRename_dailyLSTDiff(dayLST.subtract(nightLST))
-.reproject("EPSG:4326",null,5000);
+.reproject("EPSG:4326",null,1000);
 print("dailyLSTDiff0",dailyLSTDiff0)
 
 ///dailyLST
@@ -362,7 +370,7 @@ print("dailyLSTDiff",dailyLSTDiff)
 Map.addLayer(dailyLSTDiff,{},"dailyLSTDiff")
 ////////////////////////////////////////
 ///////////////
-var modis = MOD13A2.first().reproject("EPSG:4326",null,5000)
+var modis = MOD13A2.first().reproject("EPSG:4326",null,1000)
 // Get information about the MODIS projection.
 var modisProjection = modis.projection();
 print('MODIS projection:', modisProjection);
@@ -387,13 +395,13 @@ var soc = ee.Image("projects/soilgrids-isric/soc_mean");
 //divide 10, convert "dg/kg" to "g/kg", then divide 10, convert "g/kg" to "%"
 var omc = soc.select("soc_0-5cm_mean").multiply(0.01).multiply(1.724).reproject("EPSG:4326",null,250).rename("omc")
 
-var soilProper = clayFraction.addBands(sandFraction).addBands(siltFraction).addBands(porosity).addBands(omc).clip(EuropeBoundary);
+var soilProper = clayFraction.addBands(sandFraction).addBands(siltFraction).addBands(porosity).addBands(omc)
 Map.addLayer(soilProper,{min:0,max:100},"soilProper250")
 var resample = function(image) {
   return image.resample('bilinear')
               .reproject({
                     crs: modisProjection,
-                    scale: 5000})
+                    scale: 1000})
 };
 soilProper = resample(soilProper)
 Map.addLayer(soilProper,{min:0,max:100},"soilProper1000")
@@ -411,27 +419,26 @@ var predictors=dailyLST.map(function(img){
   var dailyLSTDiff1=dailyLSTDiff.filterMetadata("system:time_start","equals",time).first().rename("LST_Diff")
   var NDVI1=NDVI.filterMetadata("system:time_start","equals",time).first().rename("NDVI_SG_linear").divide(10000)
   var EVI1=EVI.filterMetadata("system:time_start","equals",time).first().rename("EVI_SG_linear").divide(10000)
-//  var Preci1=ERA5LandPre.filterMetadata("system:time_start","equals",time).first().rename("Preci").multiply(1000)
+  var Preci1=ERA5LandPre.filterMetadata("system:time_start","equals",time).first().rename("Preci").multiply(1000)
   var APILand1=APILand.filterMetadata("system:time_start","equals",time).first().rename("apei").multiply(1000)
   var Tair1 = TairCollection.filterMetadata("system:time_start","equals",time).first().rename("Tair")
   var Evapo1 = evapoCollection.filterMetadata("system:time_start","equals",time).first().rename("Evapo").multiply(-1000)
-  return img.rename("LST_DAILY")
-              .addBands(dailyLSTDiff1)
-        //    .addBands(Preci1)
-        .addBands(APILand1)
-        //    .addBands(Tair1)
-        //    .addBands(Evapo1)
+  return img.rename("LST_DAILY").addBands(dailyLSTDiff1)
+           // .addBands(Preci1)
+            //.addBands(APILand1)
+           // .addBands(Tair1)
+          //  .addBands(Evapo1)
             .addBands(NDVI1)
             .addBands(EVI1)
             .addBands(TI)
             .addBands(soilProper.select("porosity")).addBands(soilProper.select("omc"))
             .addBands(soilProper.select("clay")).addBands(soilProper.select("sand")).addBands(soilProper.select("silt"))
             .addBands(longitude).addBands(latitude).addBands(elevation)
-      //      .addBands(WTD)
-     //       .addBands(DTB)
+            .addBands(WTD)
+            .addBands(DTB)
 })
 .map(function(img){
-  return img.clip(EuropeBoundary).reproject("EPSG:4326",null,5000)
+  return img.clip(EuropeBoundary).reproject("EPSG:4326",null,1000)
 })
 print("predictors",predictors.first())
 Map.addLayer(predictors.first(),{},"predictors",false)
@@ -483,31 +490,27 @@ var classifier = ee.Classifier.smileRandomForest({
       features: training,
       classProperty: 'soil moisture',
       inputProperties: [
-                      "apei",
+                  //   "apei",
                       //"Preci",
-                  //    'Tair',
-                //      'Evapo',
-                      'LST_DAILY',
-                      'LST_Diff',
-                      'EVI_SG_linear',
-                      'NDVI_SG_linear',
-                      'clay',
-                      'sand',
-                      'silt',
-                      'TI',
-                      'elevation',
+                    //  'Tair',
+                    //  'Evapo',
+                      'LST_DAILY','LST_Diff',
+                      'EVI_SG_linear','NDVI_SG_linear',
+                      'clay','sand','silt',
+                      'TI','elevation',
                       "lat","lon",
                       'porosity',
                       "omc"
-                   //   ,'WTD'
-                  //    ,'DTB'
+                      ,'WTD'
+                      ,'DTB'
                       ]
     });
 //calculate the importance of every land surface feature
 var importance=classifier.explain();
 print('importance',importance)
 var SM=ee.ImageCollection(predictors.toList(366).slice(0,366)).map(function(img){
-  return img.classify(classifier).multiply(1000).round().toUint16()});
+  return img.classify(classifier).multiply(1000).round().toUint16()
+})
 print("SM",SM.size())
 //print("spatial resolution of SM",SM.first().projection().nominalScale().getInfo())
 function batchRename(image){
@@ -515,16 +518,14 @@ function batchRename(image){
     return ee.String("band_").cat(ee.String(name));
   })
   return image.rename(rename);
-};
+}
+SM=batchRename(SM.toBands())
 
-
-var SMclp=SM.map(clp);
-SMclp=batchRename(SMclp.toBands());
 Export.image.toAsset({
-          image: SMclp,
+          image: SM,
           description:ee.String("SM").cat(ee.String(ee.Number(firstYear))).cat("Europe1km").getInfo(),
-          scale: 5000,
-          region: EuropeBoundary.geometry,
+          scale: 1000,
+          region: EuropeBoundary,
           crs:"EPSG:4326",
           assetId:ee.String("GlobalSSM1km0509/SM").cat(ee.String(ee.Number(firstYear))).cat("Europe1km").getInfo(),
           maxPixels: 1e13,
