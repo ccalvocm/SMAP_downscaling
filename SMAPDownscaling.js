@@ -301,6 +301,9 @@ var evapoCollection = ERA5Land.filterDate(firstDay,lastDayExtra1)
                           //.set("date",date)
                 })
                 .filterDate(firstDay,lastDay).filterMetadata("hour","equals",00)
+var evapoCollection=ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR")
+                    .map(function(img){return img.select("total_evaporation_sum").rename('Evapo')})
+                    .filterDate(firstDay,lastDay);
 print("evapoCollection",evapoCollection)
 //////////////////////////*************************************
 
@@ -427,7 +430,7 @@ var predictors=dailyLST.map(function(img){
            // .addBands(Preci1)
             //.addBands(APILand1)
            // .addBands(Tair1)
-          //  .addBands(Evapo1)
+            .addBands(Evapo1)
             .addBands(NDVI1)
             .addBands(EVI1)
             .addBands(TI)
@@ -493,7 +496,7 @@ var classifier = ee.Classifier.smileRandomForest({
                   //   "apei",
                       //"Preci",
                     //  'Tair',
-                    //  'Evapo',
+                      'Evapo',
                       'LST_DAILY','LST_Diff',
                       'EVI_SG_linear','NDVI_SG_linear',
                       'clay','sand','silt',
