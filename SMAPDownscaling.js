@@ -1,19 +1,33 @@
 var MERIT = ee.Image("MERIT/Hydro/v1_0_1"),
     MOD13A2 = ee.ImageCollection("MODIS/006/MOD13A2"),
-    table = ee.FeatureCollection("users/qianrswaterr/globalBoundary/World_Continents"),
-    ERA5Land = ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY"),
-    imageCollection = ee.ImageCollection("users/qianrswaterr/WTD"),
-    DTB = ee.Image("users/qianrswaterr/predictors/BDTICM_M_1km_ll"),
+    ERA5Land = ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR"),
+    WTD=ee.Image("users/ccalvocm/WTD"),
+    DTB = ee.Image("users/ccalvocm/DTB"),
     trainTest = ee.FeatureCollection("users/qianrswaterr/GlobalSSM2022/trainTestFinal2022-0509coor"),
     valiEva = ee.FeatureCollection("users/qianrswaterr/GlobalSSM2022/valiEvaFinal2022-0509coor"),
     NLsamples = ee.FeatureCollection("users/qianrswaterr/NLsamples/trainTestNL2022-0509coor"),
-    TIele = ee.Image("users/qianrswaterr/GlobalSSM/TIele1000resample0709"),
-    era5IC=ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR");
+    TIele = ee.Image("users/ccalvocm/GlobalSSM2022/TIele1000resample0709"),
+    ERA5LandHour = ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY");
 
-var WTD = imageCollection.mosaic().reproject("EPSG:4326",null,1000).rename('WTD');
-print(imageCollection);
+// Export.table.toAsset({
+//   collection: trainTest,
+//   description:'users/ccalvocm/GlobalSSM2022/trainTestFinal2022-0509coor',
+//   assetId: 'users/ccalvocm/GlobalSSM2022/trainTestFinal2022-0509coor',
+// });
+
+
+// Export.image.toAsset({
+//           image: TIele,
+//           description:ee.String("TIele"),
+//           scale: 1000,
+//           crs:"EPSG:4326",
+//           assetId:"users/ccalvocm/TIele1000resample0709",
+//           maxPixels: 1e13,
+//           pyramidingPolicy: {'.default': 'sample'}
+//       });
+
+var WTD=WTD.reproject("EPSG:4326",null,1000).rename('WTD');
 DTB = DTB.reproject("EPSG:4326",null,1000).rename('DTB')
-var EuropeBoundary=table.filterMetadata("CONTINENT","equals","Europe");
 var EuropeBoundary=table2;
 
 ///////////////NDVI & EVI
@@ -187,8 +201,6 @@ var EVI=sgliEVICollection;
 print("EVI",EVI)
 Map.addLayer(EVI,{},"EVI")
 /////////////////////////**********************************
-
-
 //*******API************
 //1979-01-02T00:00:00 - 2020-07-09T00:00:00
 ///////filter ERA5 collection according to Date
@@ -198,7 +210,7 @@ var firstDayPreci = ee.String(ee.Number(firstYear).subtract(1)).cat('-11-28');
 var firstDay = ee.String(firstYear.toString()).cat('-01-01');
 var lastDay  = ee.String(ee.Number(firstYear).add(1)).cat('-01-01');
 var lastDayExtra1  = ee.String(ee.Number(firstYear).add(1)).cat('-01-02');
-var ERA5LandPre = ERA5Land.filterDate(firstDayPreci,lastDayExtra1).map(function(img){
+var ERA5LandPre = ERA5LandHour.filterDate(firstDayPreci,lastDayExtra1).map(function(img){
                     return img.select(["total_precipitation",'total_evaporation']).clip(EuropeBoundary)
                           // 20151129T00 represents total precipitation of 20151128 (T01-T00), so one hour shift earlier
                            .set("system:time_start",ee.Number(img.get("system:time_start")).subtract(86400000))
@@ -260,7 +272,7 @@ var APILand = apiLandCollection
 Map.addLayer(APILand.toBands(),{min:0,max:0.04},"APILand")
 /////////////////////*****************************
 //air temperature
-var preImgCol = ERA5Land.filterDate(firstDay.cat("T01"),lastDay.cat("T01")).select("temperature_2m").map(function(col){
+var preImgCol = ERA5LandHour.filterDate(firstDay.cat("T01"),lastDay.cat("T01")).select("temperature_2m").map(function(col){
   //0102T00(equals to 0101T24) -> 0101T23
   //0101T01+0101T02+...+0102T00(equals to 0101T24)
   var system_time_start = ee.Number(col.get('system:time_start')).subtract(3600000)
@@ -290,7 +302,7 @@ var TairCollection = joinImgs.map(function(image) {
                   .set('date',_date)
   return _dayImg.rename("Tair")//.reproject("EPSG:4326",null,1000); 
 }); 
-TairCollection = era5IC
+TairCollection=ERA5Land
 var TairCollection=ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR")
                     .map(function(img){return img.select("temperature_2m").rename('Tair')})
                     .filterDate(firstDay,lastDay);
@@ -299,13 +311,13 @@ Map.addLayer(ee.ImageCollection(TairCollection),{min:0,max:0.05},'TairCollection
 
 ////evaporation
 
-var evapoCollection=era5IC
+var evapoCollection=ERA5Land
                     .map(function(img){return img.select("total_evaporation_sum").rename('Evapo')})
                     .filterDate(firstDay,lastDay);
 print("evapoCollection",evapoCollection)
 
 ////precipitacion
-var precipCollection=era5IC
+var precipCollection=ERA5Land
                     .map(function(img){return img.select("total_precipitation_sum").rename('Preci')})
                     .filterDate(firstDay,lastDay);
 print("precipCollection",precipCollection);
@@ -418,8 +430,8 @@ var longitude = ee.Image.pixelLonLat().select("longitude").reproject("EPSG:4326"
 //Map.addLayer(longitude,{},"longitude")
 var latitude = ee.Image.pixelLonLat().select("latitude").reproject("EPSG:4326",null,1000).rename("lat")
 //Map.addLayer(latitude,{},"latitude")
-var elevation=TIele.select("elevation").reproject("EPSG:4326",null,1000)
-var TI=TIele.select("TI").reproject("EPSG:4326",null,1000)
+var elevation=TIele.select("elevation").reproject("EPSG:4326",null,1000);
+var TI=TIele.select("TI").reproject("EPSG:4326",null,1000);
 
 ////////////////////////combine all predictors
 var predictors=dailyLST.map(function(img){
@@ -428,7 +440,7 @@ var predictors=dailyLST.map(function(img){
   var NDVI1=NDVI.filterMetadata("system:time_start","equals",time).first().rename("NDVI_SG_linear").divide(10000)
   var EVI1=EVI.filterMetadata("system:time_start","equals",time).first().rename("EVI_SG_linear").divide(10000)
   var Preci1=precipCollection.filterMetadata("system:time_start","equals",time).first().rename("Preci").multiply(1000)
-  var APILand1=APILand.filterMetadata("system:time_start","equals",time).first().rename("apei").multiply(1000)
+//  var APILand1=APILand.filterMetadata("system:time_start","equals",time).first().rename("apei").multiply(1000)
   var Tair1=TairCollection.filterMetadata("system:time_start","equals",time).first().rename("Tair").subtract(273.15)
   var Evapo1=evapoCollection.filterMetadata("system:time_start","equals",time).first().rename("Evapo").multiply(-1000)
   return img.rename("LST_DAILY").addBands(dailyLSTDiff1)
