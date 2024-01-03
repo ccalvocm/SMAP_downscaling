@@ -7,10 +7,11 @@ var MERIT = ee.Image("MERIT/Hydro/v1_0_1"),
     trainTest = ee.FeatureCollection("users/qianrswaterr/GlobalSSM2022/trainTestFinal2022-0509coor"),
     valiEva = ee.FeatureCollection("users/qianrswaterr/GlobalSSM2022/valiEvaFinal2022-0509coor"),
     NLsamples = ee.FeatureCollection("users/qianrswaterr/NLsamples/trainTestNL2022-0509coor"),
-    TIele = ee.Image("users/qianrswaterr/GlobalSSM/TIele1000resample0709");
+    TIele = ee.Image("users/qianrswaterr/GlobalSSM/TIele1000resample0709"),
+    era5IC=ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR");
 
-
-var WTD = imageCollection.mosaic().reproject("EPSG:4326",null,1000).rename('WTD'); 
+var WTD = imageCollection.mosaic().reproject("EPSG:4326",null,1000).rename('WTD');
+print(imageCollection);
 DTB = DTB.reproject("EPSG:4326",null,1000).rename('DTB')
 var EuropeBoundary=table.filterMetadata("CONTINENT","equals","Europe");
 var EuropeBoundary=table2;
@@ -289,7 +290,7 @@ var TairCollection = joinImgs.map(function(image) {
                   .set('date',_date)
   return _dayImg.rename("Tair")//.reproject("EPSG:4326",null,1000); 
 }); 
-TairCollection = ee.ImageCollection(TairCollection)
+TairCollection = era5IC
 var TairCollection=ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR")
                     .map(function(img){return img.select("temperature_2m").rename('Tair')})
                     .filterDate(firstDay,lastDay);
@@ -297,18 +298,17 @@ print("TairCollection",TairCollection)
 Map.addLayer(ee.ImageCollection(TairCollection),{min:0,max:0.05},'TairCollection')
 
 ////evaporation
-var evapoCollection = ERA5Land.filterDate(firstDay,lastDayExtra1)
-                .map(function(img){
-                  //var date = ee.Date(img.get('system:time_start')).format("YYYY-MM-dd")
-                  return img.select("total_evaporation").rename("Evapo")//.reproject("EPSG:4326",null,1000)
-                            .set("system:time_start",ee.Number(img.get("system:time_start")).subtract(86400000))
-                          //.set("date",date)
-                })
-                .filterDate(firstDay,lastDay).filterMetadata("hour","equals",00)
-var evapoCollection=ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR")
+
+var evapoCollection=era5IC
                     .map(function(img){return img.select("total_evaporation_sum").rename('Evapo')})
                     .filterDate(firstDay,lastDay);
 print("evapoCollection",evapoCollection)
+
+////precipitacion
+var precipCollection=era5IC
+                    .map(function(img){return img.select("total_precipitation_sum").rename('Preci')})
+                    .filterDate(firstDay,lastDay);
+print("precipCollection",precipCollection);
 
 //////////////////////////*************************************
 
@@ -427,12 +427,12 @@ var predictors=dailyLST.map(function(img){
   var dailyLSTDiff1=dailyLSTDiff.filterMetadata("system:time_start","equals",time).first().rename("LST_Diff")
   var NDVI1=NDVI.filterMetadata("system:time_start","equals",time).first().rename("NDVI_SG_linear").divide(10000)
   var EVI1=EVI.filterMetadata("system:time_start","equals",time).first().rename("EVI_SG_linear").divide(10000)
-  var Preci1=ERA5LandPre.filterMetadata("system:time_start","equals",time).first().rename("Preci").multiply(1000)
+  var Preci1=precipCollection.filterMetadata("system:time_start","equals",time).first().rename("Preci").multiply(1000)
   var APILand1=APILand.filterMetadata("system:time_start","equals",time).first().rename("apei").multiply(1000)
-  var Tair1 = TairCollection.filterMetadata("system:time_start","equals",time).first().rename("Tair").subtract(273.15)
-  var Evapo1 = evapoCollection.filterMetadata("system:time_start","equals",time).first().rename("Evapo").multiply(-1000)
+  var Tair1=TairCollection.filterMetadata("system:time_start","equals",time).first().rename("Tair").subtract(273.15)
+  var Evapo1=evapoCollection.filterMetadata("system:time_start","equals",time).first().rename("Evapo").multiply(-1000)
   return img.rename("LST_DAILY").addBands(dailyLSTDiff1)
-            //.addBands(Preci1)
+            .addBands(Preci1)
             //.addBands(APILand1)
             .addBands(Tair1)
             .addBands(Evapo1)
@@ -500,7 +500,7 @@ var classifier = ee.Classifier.smileRandomForest({
       inputProperties: [
                   //   "apei",
                       //"Preci",
-                    //  'Tair',
+                      'Tair',
                       'Evapo',
                       'LST_DAILY','LST_Diff',
                       'EVI_SG_linear','NDVI_SG_linear',
