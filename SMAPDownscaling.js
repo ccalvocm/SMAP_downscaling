@@ -9,23 +9,6 @@ var MERIT = ee.Image("MERIT/Hydro/v1_0_1"),
     TIele = ee.Image("users/ccalvocm/GlobalSSM2022/TIele1000resample0709"),
     ERA5LandHour = ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY");
 
-// Export.table.toAsset({
-//   collection: NLsamples,
-//   description:'NLsamples',
-//   assetId: 'users/ccalvocm/NLsamples/trainTestNL2022-0509coor',
-// });
-
-
-// Export.image.toAsset({
-//           image: TIele,
-//           description:ee.String("TIele"),
-//           scale: 1000,
-//           crs:"EPSG:4326",
-//           assetId:"users/ccalvocm/TIele1000resample0709",
-//           maxPixels: 1e13,
-//           pyramidingPolicy: {'.default': 'sample'}
-//       });
-
 var WTD=WTD.reproject("EPSG:4326",null,1000).rename('WTD');
 DTB = DTB.reproject("EPSG:4326",null,1000).rename('DTB')
 var EuropeBoundary=table2;
