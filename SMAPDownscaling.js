@@ -290,8 +290,12 @@ var TairCollection = joinImgs.map(function(image) {
   return _dayImg.rename("Tair")//.reproject("EPSG:4326",null,1000); 
 }); 
 TairCollection = ee.ImageCollection(TairCollection)
+var TairCollection=ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR")
+                    .map(function(img){return img.select("temperature_2m").rename('Tair')})
+                    .filterDate(firstDay,lastDay);
 print("TairCollection",TairCollection)
 Map.addLayer(ee.ImageCollection(TairCollection),{min:0,max:0.05},'TairCollection')
+
 ////evaporation
 var evapoCollection = ERA5Land.filterDate(firstDay,lastDayExtra1)
                 .map(function(img){
@@ -305,6 +309,7 @@ var evapoCollection=ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR")
                     .map(function(img){return img.select("total_evaporation_sum").rename('Evapo')})
                     .filterDate(firstDay,lastDay);
 print("evapoCollection",evapoCollection)
+
 //////////////////////////*************************************
 
 ///////////////////////////***********************************
@@ -424,12 +429,12 @@ var predictors=dailyLST.map(function(img){
   var EVI1=EVI.filterMetadata("system:time_start","equals",time).first().rename("EVI_SG_linear").divide(10000)
   var Preci1=ERA5LandPre.filterMetadata("system:time_start","equals",time).first().rename("Preci").multiply(1000)
   var APILand1=APILand.filterMetadata("system:time_start","equals",time).first().rename("apei").multiply(1000)
-  var Tair1 = TairCollection.filterMetadata("system:time_start","equals",time).first().rename("Tair")
+  var Tair1 = TairCollection.filterMetadata("system:time_start","equals",time).first().rename("Tair").subtract(273.15)
   var Evapo1 = evapoCollection.filterMetadata("system:time_start","equals",time).first().rename("Evapo").multiply(-1000)
   return img.rename("LST_DAILY").addBands(dailyLSTDiff1)
-           // .addBands(Preci1)
+            //.addBands(Preci1)
             //.addBands(APILand1)
-           // .addBands(Tair1)
+            .addBands(Tair1)
             .addBands(Evapo1)
             .addBands(NDVI1)
             .addBands(EVI1)
